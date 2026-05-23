@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול לקוחות ומכונות - גלב</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+        .unicode-fix { text-align: right; direction: rtl; unicode-bidi: isolate; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-10 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem]">
+
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center justify-between w-full md:w-auto gap-4">
+                <h1 class="text-xl font-bold text-blue-400 flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-users-gear text-blue-500"></i>
+                    <span>מערכת ניהול לקוחות, מכונות והיסטוריית תיקונים</span>
+                </h1>
+                <button id="adminBtn" onclick="handleAdminToggle(event)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-2 cursor-pointer border border-slate-700">
+                    <i class="fa-solid fa-lock"></i>
+                    <span id="adminBtnText">כניסת מנהל (Admin)</span>
+                </button>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
+                <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex gap-1 w-full sm:w-auto">
+                    <button onclick="setViewMode('cards')" id="viewModeCardsBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-grow justify-center bg-blue-600 text-white shadow">
+                        <i class="fa-solid fa-table-cells-large"></i>
+                        <span>כרטיסי ציוד</span>
+                    </button>
+                    <button onclick="setViewMode('list')" id="viewModeListBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-grow justify-center text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-list-ul"></i>
+                        <span>רשימת לקוחות</span>
+                    </button>
+                </div>
+
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="searchInput" oninput="filterData()" placeholder="חיпоש לפי לקוח, כתובת, מכונה או תקלה..." 
+                           class="w-full bg-slate-950 text-white placeholder-slate-500 border border-slate-800 rounded-lg pl-4 pr-10 py-2 text-right text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-500 text-xs"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="max-w-5xl mx-auto px-4 py-2.5 overflow-x-auto flex gap-2 justify-start sm:justify-center scrollbar-none border-t border-slate-800/60">
+            <button onclick="filterRegion('all', this)" class="region-btn active bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap shadow-md">כל האזורים</button>
+            <button onclick="filterRegion('תל אביב והמרכז', this)" class="region-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-slate-700/50">תל אביב והמרכז</button>
+            <button onclick="filterRegion('גוש דן והמרכז', this)" class="region-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-slate-700/50">גוש דן והמרכז</button>
+            <button onclick="filterRegion('מודיעין והסביבה', this)" class="region-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-slate-700/50">מודיעין והסביבה</button>
+            <button onclick="filterRegion('שרון וצפון', this)" class="region-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-slate-700/50">שרון וצפון</button>
+            <button onclick="filterRegion('שפלה ודרום', this)" class="region-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-slate-700/50">שפלה ודרום</button>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 mt-6">
+        
+        <div class="flex justify-between items-center mb-6">
+            <button onclick="openAddClientMode()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-md cursor-pointer">
+                <i class="fa-solid fa-user-plus text-xs"></i>
+                <span>הוספת לקוח חדש</span>
+            </button>
+            
+            <div id="adminBadge" class="hidden bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <span>מצב עריכה מנהל פעיל</span>
+            </div>
+        </div>
+
+        <div id="clientFormContainer" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6 shadow-xl">
+            <h2 id="clientFormTitle" class="text-base font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2"></h2>
+            <form id="clientForm" onsubmit="saveClientForm(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-right">
+                <input type="hidden" id="clientId">
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">שם הלקוח / חברה *</label>
+                    <input type="text" id="formClientName" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">אזור חברה ראשי *</label>
+                    <select id="formClientRegion" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer">
+                        <option value="גוש דן והמרכז">גוש דן והמרכז</option>
+                        <option value="תל אביב והמרכז">תל אביב והמרכז</option>
+                        <option value="מודיעין והסביבה">מודיעין והסביבה</option>
+                        <option value="שרון וצפון">שרון וצפון</option>
+                        <option value="שפלה ודרום">שפלה ודרום</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">טלפון חברה / משרד *</label>
+                    <input type="text" id="formClientPhone" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 text-left" dir="ltr">
+                </div>
+                <div class="sm:col-span-2 flex justify-end gap-2 mt-2">
+                    <button type="button" onclick="closeClientForm()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-medium cursor-pointer border border-slate-700">ביטול</button>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg font-bold shadow-md cursor-pointer">שמירת לקוח</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="machineFormContainer" class="hidden bg-slate-900 border border-amber-600/30 rounded-xl p-5 mb-6 shadow-xl">
+            <h2 id="machineFormTitle" class="text-base font-bold text-amber-400 mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <i class="fa-solid fa-robot"></i>
+                <span>ניהול מכונה ומיקום עבור הלקוח</span>
+            </h2>
+            <form id="machineForm" onsubmit="saveMachineForm(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm text-right">
+                <input type="hidden" id="machineTargetClientId">
+                <input type="hidden" id="machineId">
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">דגם הציוד / המכונה *</label>
+                    <input type="text" id="formMachineModel" required placeholder="לדוגמה: ICE I18B" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">מספר סידורי / מזהה ייחודי</label>
+                    <input type="text" id="formMachineSerial" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 font-mono text-left" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">תאריך רכישה / מידע סוללות</label>
+                    <input type="text" id="formMachinePurDate" placeholder="לדוגמה: מצברי ג'ל מ-25.3.25" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                
+                <div class="sm:col-span-2">
+                    <label class="block text-slate-400 mb-1 font-medium">כתובת מלאה של הסניף (איפה שהמכונה נמצאת) *</label>
+                    <input type="text" id="formMachineAddress" required placeholder="לדוגמה: אבא הילל 25, רמת גן" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">איש קשר בסניף זה</label>
+                    <input type="text" id="formMachineContact" placeholder="לדוגמה: גודאת" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">טלפון של הסניף/איש הקשר (אם שונה מהראשי)</label>
+                    <input type="text" id="formMachinePhone" placeholder="לדוגמה: 052-6498962" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 text-left" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">סטטוס חניה בסניף</label>
+                    <select id="formMachineParking" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer">
+                        <option value="yes">יש חניה במקום</option>
+                        <option value="no">אין חניה / בעיית חניה</option>
+                        <option value="unknown">לא ידוע</option>
+                    </select>
+                </div>
+
+                <div class="sm:col-span-2 md:col-span-3 flex justify-end gap-2 mt-2">
+                    <button type="button" onclick="closeMachineForm()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-medium cursor-pointer border border-slate-700">ביטול</button>
+                    <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-lg font-bold shadow-md cursor-pointer">שמירת מכונה ומיקום</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="cardsContainer" class="grid grid-cols-1 gap-6"></div>
+
+        <div id="listContainer" class="hidden bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl unicode-fix">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-right text-slate-300">
+                    <thead class="bg-slate-950 text-slate-400 uppercase text-xs border-b border-slate-800">
+                        <tr>
+                            <th scope="col" class="px-6 py-4 font-bold">שם הלקוח / חברה</th>
+                            <th scope="col" class="px-6 py-4 font-bold">אזור ראשי</th>
+                            <th scope="col" class="px-6 py-4 font-bold">טלפון ראשי</th>
+                            <th scope="col" class="px-6 py-4 font-bold text-center">מספר סניפים / מכונות</th>
+                            <th scope="col" class="px-6 py-4 font-bold text-center">פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listTableBody" class="divide-y divide-slate-800/60"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+  
+<script src="database.js"></script> // Подключение БД
+
+    <script>
+        const ADMIN_PASSWORD = "1234";
+        let isAdmin = false;
+        let currentRegion = 'all';
+        let viewMode = 'cards'; 
+
+        let db = JSON.parse(localStorage.getItem('crm_gleb_v5'));
+        if (!db) {
+            db = initialClientDatabase;
+            localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            const cardsBtn = document.getElementById('viewModeCardsBtn');
+            const listBtn = document.getElementById('viewModeListBtn');
+            
+            if (mode === 'cards') {
+                cardsBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-grow justify-center bg-blue-600 text-white shadow";
+                listBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-grow justify-center text-slate-400 hover:text-slate-200";
+                document.getElementById('cardsContainer').classList.remove('hidden');
+                document.getElementById('listContainer').classList.add('hidden');
+            } else {
+                listBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-grow justify-center bg-blue-600 text-white shadow";
+                cardsBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-grow justify-center text-slate-400 hover:text-slate-200";
+                document.getElementById('cardsContainer').classList.add('hidden');
+                document.getElementById('listContainer').classList.remove('hidden');
+            }
+            filterData();
+        }
+
+        function handleAdminToggle(e) {
+            e.preventDefault();
+            if (isAdmin) {
+                isAdmin = false;
+                document.getElementById('adminBtn').className = "bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-2 cursor-pointer border border-slate-700";
+                document.getElementById('adminBtnText').textContent = "כניסת מנהל (Admin)";
+                document.getElementById('adminBadge').classList.add('hidden');
+                closeClientForm();
+                closeMachineForm();
+                filterData();
+            } else {
+                const pass = prompt('אנא הזן סיסמת מנהל:');
+                if (pass === ADMIN_PASSWORD) {
+                    isAdmin = true;
+                    document.getElementById('adminBtn').className = "bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-2 cursor-pointer shadow-md";
+                    document.getElementById('adminBtnText').textContent = "יציאה ממצב מנהל";
+                    document.getElementById('adminBadge').classList.remove('hidden');
+                    filterData();
+                } else if (pass !== null) {
+                    alert('סיסמה שגויה!');
+                }
+            }
+        }
+
+        function openAddClientMode() {
+            document.getElementById('clientForm').reset();
+            document.getElementById('clientId').value = '';
+            document.getElementById('clientFormTitle').innerHTML = `<i class="fa-solid fa-user-plus text-blue-400"></i> <span>יצירת כרטיס לקוח חדש (חברה)</span>`;
+            document.getElementById('clientFormContainer').classList.remove('hidden');
+            document.getElementById('clientFormContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function openEditClientMode(id) {
+            const client = db.find(c => c.id === id);
+            if (!client) return;
+            document.getElementById('clientId').value = client.id;
+            document.getElementById('formClientName').value = client.name;
+            document.getElementById('formClientRegion').value = client.region;
+            document.getElementById('formClientPhone').value = client.phone;
+
+            document.getElementById('clientFormTitle').innerHTML = `<i class="fa-solid fa-user-pen text-amber-400"></i> <span>עריכת פרטי לקוח / חברה</span>`;
+            document.getElementById('clientFormContainer').classList.remove('hidden');
+            document.getElementById('clientFormContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function closeClientForm() { document.getElementById('clientFormContainer').classList.add('hidden'); }
+
+        function saveClientForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('clientId').value;
+            const data = {
+                name: document.getElementById('formClientName').value.trim(),
+                region: document.getElementById('formClientRegion').value,
+                phone: document.getElementById('formClientPhone').value.trim()
+            };
+
+            if (id) {
+                const idx = db.findIndex(c => c.id === id);
+                if (idx !== -1) db[idx] = { ...db[idx], ...data };
+            } else {
+                data.id = 'c_' + Date.now();
+                data.machines = [];
+                db.unshift(data);
+            }
+            localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+            closeClientForm();
+            filterData();
+        }
+
+        function deleteClient(id) {
+            if (confirm('למחוק את הלקוח ואת כל המכונות והסניפים שלו לצמיתות?')) {
+                db = db.filter(c => c.id !== id);
+                localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+                filterData();
+            }
+        }
+
+        function openAddMachineMode(clientId) {
+            document.getElementById('machineForm').reset();
+            document.getElementById('machineId').value = '';
+            document.getElementById('machineTargetClientId').value = clientId;
+            document.getElementById('machineFormTitle').innerHTML = `<i class="fa-solid fa-robot"></i> <span>הוספת מכונה וכתובת סניף חדשה</span>`;
+            document.getElementById('machineFormContainer').classList.remove('hidden');
+            document.getElementById('machineFormContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function openEditMachineMode(clientId, machineId) {
+            const client = db.find(c => c.id === clientId);
+            if (!client) return;
+            const mac = client.machines.find(m => m.id === machineId);
+            if (!mac) return;
+
+            document.getElementById('machineTargetClientId').value = clientId;
+            document.getElementById('machineId').value = mac.id;
+            document.getElementById('formMachineModel').value = mac.model;
+            document.getElementById('formMachineSerial').value = mac.serial || '';
+            document.getElementById('formMachinePurDate').value = mac.purchaseDate || '';
+            document.getElementById('formMachineAddress').value = mac.address || '';
+            document.getElementById('formMachineContact').value = mac.contact || '';
+            document.getElementById('formMachinePhone').value = mac.phone || '';
+            document.getElementById('formMachineParking').value = mac.parking || 'unknown';
+
+            document.getElementById('machineFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> <span>עריכת מכונה ונתוני סניף</span>`;
+            document.getElementById('machineFormContainer').classList.remove('hidden');
+            document.getElementById('machineFormContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function closeMachineForm() { document.getElementById('machineFormContainer').classList.add('hidden'); }
+
+        function saveMachineForm(e) {
+            e.preventDefault();
+            const clientId = document.getElementById('machineTargetClientId').value;
+            const machineId = document.getElementById('machineId').value;
+            
+            const client = db.find(c => c.id === clientId);
+            if (!client) return;
+
+            const machineData = {
+                model: document.getElementById('formMachineModel').value.trim(),
+                serial: document.getElementById('formMachineSerial').value.trim(),
+                purchaseDate: document.getElementById('formMachinePurDate').value.trim(),
+                address: document.getElementById('formMachineAddress').value.trim(),
+                contact: document.getElementById('formMachineContact').value.trim(),
+                phone: document.getElementById('formMachinePhone').value.trim(),
+                parking: document.getElementById('formMachineParking').value
+            };
+
+            if (machineId) {
+                const mIdx = client.machines.findIndex(m => m.id === machineId);
+                if (mIdx !== -1) {
+                    // Сохраняем старую историю при редактировании
+                    machineData.id = machineId;
+                    machineData.history = client.machines[mIdx].history || [];
+                    client.machines[mIdx] = machineData;
+                }
+            } else {
+                machineData.id = 'm_' + Date.now();
+                machineData.history = [];
+                client.machines.push(machineData);
+            }
+
+            localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+            closeMachineForm();
+            filterData();
+        }
+
+        function deleteMachine(clientId, machineId) {
+            if (confirm('האם למחוק מכונה זו ואת כל המיקום והיסטוריית התיקונים שלה?')) {
+                const client = db.find(c => c.id === clientId);
+                if (client) {
+                    client.machines = client.machines.filter(m => m.id !== machineId);
+                    localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+                    filterData();
+                }
+            }
+        }
+
+        function addHistoryRow(clientId, machineId) {
+            const text = prompt('הזן תיאור תקלה / טיפול חדש:');
+            if (!text) return;
+            const client = db.find(c => c.id === clientId);
+            if (!client) return;
+            const machine = client.machines.find(m => m.id === machineId);
+            if (!machine) return;
+
+            const now = new Date();
+            const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
+            
+            machine.history.unshift({ date: dateStr, text: text, status: 'open' });
+            localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+            filterData();
+        }
+
+        function changeHistoryStatus(clientId, machineId, histIdx, newStatus) {
+            const client = db.find(c => c.id === clientId);
+            if (client) {
+                const machine = client.machines.find(m => m.id === machineId);
+                if (machine && machine.history[histIdx]) {
+                    machine.history[histIdx].status = newStatus;
+                    localStorage.setItem('crm_gleb_v5', JSON.stringify(db));
+                    filterData();
+                }
+            }
+        }
+
+        // Рендер СПИСКА КОМПАНИЙ (Таблица)
+        function renderList(data) {
+            const tbody = document.getElementById('listTableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-slate-500 py-8 italic">לא נמצאו לקוחות תואמים</td></tr>`;
+                return;
+            }
+
+            data.forEach(client => {
+                const machineCount = client.machines ? client.machines.length : 0;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/40 transition">
+                        <td class="px-6 py-4 font-bold text-white">${client.name}</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-blue-950 text-blue-400 border border-blue-900/50 text-[11px] font-bold px-2 py-0.5 rounded">
+                                ${client.region}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-xs">
+                            ${isAdmin ? `<a href="tel:${client.phone.replace(/[^0-9+]/g, '')}" class="text-blue-400 hover:underline">${client.phone}</a>` : '<span class="italic text-slate-600 text-xs">חסוי</span>'}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                                ${machineCount} סניפים/מכונות
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openCardViewForClient('${client.name}')" title="הצג כרטיס" class="text-blue-400 hover:text-blue-300 transition px-1 cursor-pointer">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                </button>
+                                ${isAdmin ? `
+                                    <button onclick="openEditClientMode('${client.id}')" title="עריכה" class="text-amber-400 hover:text-amber-300 transition px-1 cursor-pointer">
+                                        <i class="fa-solid fa-user-pen text-xs"></i>
+                                    </button>
+                                    <button onclick="deleteClient('${client.id}')" title="מחיקה" class="text-rose-500 hover:text-rose-400 transition px-1 cursor-pointer">
+                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openCardViewForClient(clientName) {
+            document.getElementById('searchInput').value = clientName;
+            setViewMode('cards');
+        }
+
+        // Рендер КАРТОЧЕК (Основной рабочий экран)
+        function renderCards(data) {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                container.innerHTML = `<div class="text-center text-slate-500 py-12 border border-slate-800 rounded-xl bg-slate-900/20 unicode-fix">לא נמצאו לקוחות תואמים</div>`;
+                return;
+            }
+
+            data.forEach(client => {
+                let parkingHTML = '';
+                if (client.parking === 'yes') parkingHTML = `<span class="bg-emerald-950 text-emerald-400 border border-emerald-800/60 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1"><i class="fa-solid fa-square-p"></i> חניה זמינה</span>`;
+                if (client.parking === 'no') parkingHTML = `<span class="bg-rose-950 text-rose-400 border border-rose-900/60 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> בעיית חניה</span>`;
+
+                // Базовый телефон и адрес берем у клиента, если у машинки нет своих
+                const clientAddress = client.address ? client.address.split('{')[0].trim() : '';
+                const clientPhone = client.phone || '';
+
+                let machinesHTML = '';
+                if (client.machines && client.machines.length > 0) {
+                    client.machines.forEach(mac => {
+                        let historyRowsHTML = '';
+                        if (mac.history && mac.history.length > 0) {
+                            mac.history.forEach((hist, hIdx) => {
+                                let statusColor = "border-blue-500 bg-blue-500/5 text-blue-100";
+                                if (hist.status === 'pending') statusColor = "border-amber-500 bg-amber-500/5 text-amber-100";
+                                if (hist.status === 'closed') statusColor = "border-slate-800 bg-slate-950/40 text-slate-500 opacity-60";
+
+                                historyRowsHTML += `
+                                    <div class="border-r-4 ${statusColor} p-3.5 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-slate-900/40 border border-slate-800/40">
+                                        <div class="flex items-start gap-2.5">
+                                            <span class="font-mono bg-slate-950 px-2 py-0.5 rounded text-xs text-slate-400 shrink-0 mt-0.5">${hist.date || '---'}</span>
+                                            <span class="leading-relaxed text-right font-medium">${hist.text}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                            <span class="text-xs text-slate-500">סטטוס:</span>
+                                            <select onchange="changeHistoryStatus('${client.id}', '${mac.id}', ${hIdx}, this.value)" class="bg-slate-950 text-slate-200 text-xs border border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer font-medium">
+                                                <option value="open" ${hist.status === 'open' ? 'selected' : ''}>🟢 פתוח</option>
+                                                <option value="pending" ${hist.status === 'pending' ? 'selected' : ''}>🟡 במתנה</option>
+                                                <option value="closed" ${hist.status === 'closed' ? 'selected' : ''}>⚫ סגור</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            historyRowsHTML = `<div class="text-xs text-slate-600 italic py-1 text-right">אין היסטוריית תיקונים למכונה זו</div>`;
+                        }
+
+                        // Генерируем данные навигации для КОНКРЕТНОЙ машинки (если у нее есть адрес, иначе берем общий адрес клиента)
+                        const currentAddress = mac.address ? mac.address.split('{')[0].trim() : clientAddress;
+                        const currentPhone = mac.phone || clientPhone;
+                        
+                        const gMapsUrl = `https://maps.google.com/?q=${encodeURIComponent(currentAddress + ' ישראל')}`;
+                        const wazeUrl = `waze://?q=${encodeURIComponent(currentAddress)}&navigate=yes`;
+
+                        // КАРТОЧКА МАШИНКИ С КНОПКАМИ НАВИГАЦИИ И ЗВОНКА ИМЕННО ДЛЯ НЕЕ
+                        machinesHTML += `
+                            <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-5 space-y-4 relative shadow-inner">
+                                <div class="flex justify-between items-start gap-4 border-b border-slate-800 pb-4">
+                                    <div class="text-right space-y-2 w-full">
+                                        <div class="flex items-center justify-between flex-wrap gap-2">
+                                            <h4 class="font-bold text-lg text-amber-400 flex items-center gap-2 justify-start">
+                                                <i class="fa-solid fa-robot text-base text-amber-500"></i>
+                                                <span>${mac.model}</span>
+                                            </h4>
+                                            
+                                            ${isAdmin ? `
+                                                <button onclick="deleteMachine('${client.id}', '${mac.id}')" title="מחק מכונה" class="text-slate-500 hover:text-rose-400 transition p-1.5 cursor-pointer text-sm">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        <div class="text-sm text-slate-400 flex flex-wrap gap-x-5 gap-y-1 pt-1">
+                                            ${mac.serial ? `<span><strong>מספר סידורי:</strong> <span class="font-mono text-emerald-400 font-bold">${mac.serial}</span></span>` : ''}
+                                            ${mac.purchaseDate ? `<span><strong>מידע/תאריך:</strong> <span class="text-slate-300">${mac.purchaseDate}</span></span>` : ''}
+                                        </div>
+
+                                        <div class="text-sm text-slate-300 space-y-1 pt-1">
+                                            ${mac.address && mac.address !== client.address ? `<p><strong>כתובת מכונה:</strong> ${isAdmin ? mac.address : '<span class="italic text-slate-600">חסוי</span>'}</p>` : ''}
+                                            ${mac.contact ? `<p><strong>איש קשר למכונה:</strong> ${mac.contact}</p>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col sm:flex-row gap-2.5 pb-2 border-b border-slate-800/60">
+                                    <a href="tel:${currentPhone.replace(/[^0-9+]/g, '')}" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-800 text-center py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition flex-grow shadow-sm">
+                                        <i class="fa-solid fa-phone text-xs"></i>
+                                        <span>${isAdmin ? `חיוג: ${currentPhone}` : 'חיוג למכונה'}</span>
+                                    </a>
+                                    ${isAdmin && currentAddress ? `
+                                        <a href="${gMapsUrl}" target="_blank" class="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-center py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition shadow-sm">
+                                            <i class="fa-solid fa-location-dot text-blue-500"></i> Maps
+                                        </a>
+                                        <a href="${wazeUrl}" class="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-center py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition shadow-sm">
+                                            <i class="fa-brands fa-waze text-amber-500"></i> Waze
+                                        </a>
+                                    ` : ''}
+                                </div>
+
+                                <div class="space-y-3 pt-1">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-sm font-bold text-slate-400 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-clock-rotate-left text-xs text-blue-500"></i> היסטוריית תקלות וטיפולים:
+                                        </span>
+                                        <button onclick="addHistoryRow('${client.id}', '${mac.id}')" class="text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-lg text-blue-400 font-bold flex items-center gap-1.5 transition cursor-pointer">
+                                            <i class="fa-solid fa-plus text-[10px]"></i> הוספת אירוע תיקון
+                                        </button>
+                                    </div>
+                                    <div class="space-y-2.5 max-h-60 overflow-y-auto pl-1">
+                                        ${historyRowsHTML}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    machinesHTML = `
+                        <div class="text-center py-6 border border-dashed border-slate-800 rounded-xl text-sm text-slate-500 bg-slate-900/10">
+                            לא רשומות מכונות עבור לקוח это.
+                        </div>
+                    `;
+                }
+
+                // КАРТОЧКА САМОГО КЛИЕНТА (Кнопки снизу убраны)
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col relative unicode-fix";
+                card.innerHTML = `
+                    <div class="absolute top-6 left-6 flex items-center gap-3 z-10">
+                        ${isAdmin ? `
+                            <button onclick="openEditClientMode('${client.id}')" title="עריכת לקוח" class="text-slate-500 hover:text-amber-400 transition text-base p-1.5 cursor-pointer">
+                                <i class="fa-solid fa-user-pen"></i>
+                            </button>
+                            <button onclick="deleteClient('${client.id}')" title="מחיקת לקוח" class="text-slate-600 hover:text-rose-500 transition text-base p-1.5 cursor-pointer">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div class="border-b border-slate-800/80 pb-4 mb-4 text-right">
+                        <div class="flex flex-wrap items-center gap-2 mb-2.5 pl-14 justify-start">
+                            <span class="bg-blue-950 text-blue-400 border border-blue-900/50 text-xs font-bold px-2.5 py-0.5 rounded">
+                                ${client.region}
+                            </span>
+                            ${parkingHTML}
+                        </div>
+                        <h3 class="text-xl font-bold text-white tracking-wide">${client.name}</h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-400 mt-2.5">
+                            <p class="text-right"><strong>כתובת משרד/ראשי:</strong> ${isAdmin ? `<span class="text-slate-200">${client.address}</span>` : '<span class="italic text-slate-600">חסוי (התחבר כמנהל)</span>'}</p>
+                            ${client.contact ? `<p class="text-right"><strong>איש קשר ראשי:</strong> <span class="text-slate-200">${client.contact}</span></p>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 flex-grow text-right">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-bold text-slate-400 tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-list-check text-sm text-slate-500"></i> רשימת ציוד ומכונות שטיפה:</span>
+                            <button onclick="openAddMachineMode('${client.id}')" class="text-xs bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition cursor-pointer shadow-sm">
+                                <i class="fa-solid fa-plus text-[10px]"></i> הוספת מכונה ללקוח
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4">
+                            ${machinesHTML}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Умный сквозной поиск (ищет по названию, по адресу филиала, по модели, серийнику и логам)
+        function filterData() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filtered = db.filter(client => {
+                const matchesRegion = (currentRegion === 'all' || client.region === currentRegion);
+                
+                const inClientName = client.name.toLowerCase().includes(query);
+                const inMainPhone = client.phone.includes(query);
+
+                let inMachinesOrBranches = false;
+                if (client.machines) {
+                    inMachinesOrBranches = client.machines.some(mac => {
+                        const inModel = mac.model.toLowerCase().includes(query);
+                        const inAddress = mac.address ? mac.address.toLowerCase().includes(query) : false;
+                        const inContact = mac.contact ? mac.contact.toLowerCase().includes(query) : false;
+                        const inSerial = mac.serial ? mac.serial.toLowerCase().includes(query) : false;
+                        const inHistory = mac.history ? mac.history.some(h => h.text.toLowerCase().includes(query)) : false;
+                        return inModel || inAddress || inContact || inSerial || inHistory;
+                    });
+                }
+
+                return matchesRegion && (inClientName || inMainPhone || inMachinesOrBranches);
+            });
+
+            if (viewMode === 'cards') {
+                renderCards(filtered);
+            } else {
+                renderList(filtered);
+            }
+        }
+
+        function filterRegion(region, btnElement) {
+            currentRegion = region;
+            document.querySelectorAll('.region-btn').forEach(btn => {
+                btn.className = "region-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-slate-700/50";
+            });
+            if(btnElement) {
+                btnElement.className = "region-btn active bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap shadow-md";
+            }
+            filterData();
+        }
+
+        // Старт приложения
+        filterData();
+    </script>
+</body>
+</html>
